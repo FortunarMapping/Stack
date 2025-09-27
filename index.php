@@ -48,7 +48,7 @@ $result = $conn->query("SELECT * FROM posts ORDER BY id DESC");
                     <?php if (!empty($row['image'])): ?>
                         <img src="<?= htmlspecialchars($row['image']) ?>" alt="post image" style="max-width:300px;">
                     <?php endif; ?>
-                    <br><small><?= $row['created_at'] ?></small>
+                    <br><small>โพสต์เมื่อ :<?= $row['created_at'] ?></small>
                 </div>
             <?php endwhile; ?>
         <?php endif; ?>
