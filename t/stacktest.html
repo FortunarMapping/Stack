@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <title>Stack with JavaScript</title>
+</head>
+<body>
+  <h2>Stack Structure (JavaScript)</h2>
+  <input type="text" id="value" placeholder="ใส่ค่า...">
+  <button onclick="pushStack()">Push</button>
+  <button onclick="popStack()">Pop</button>
+  
+  <h3>Stack ปัจจุบัน:</h3>
+  <pre id="stack"></pre>
+
+  <h3>Top:</h3>
+  <p id="top"></p>
+
+  <script>
+    let stack = [];
+
+    function render() {
+      document.getElementById('stack').textContent = JSON.stringify(stack);
+      document.getElementById('top').textContent = stack.length > 0 ? stack[stack.length-1] : "ว่าง";
+    }
+
+    function pushStack() {
+      const val = document.getElementById('value').value;
+      if(val !== "") stack.push(val);
+      render();
+    }
+
+    function popStack() {
+      stack.pop();
+      render();
+    }
+
+    render();
+  </script>
+</body>
+</html>
