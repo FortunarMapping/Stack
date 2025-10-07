@@ -1,0 +1,26 @@
+{
+  "dependencies": {
+    "express": "^5.1.0",
+    "multer": "^2.0.2",
+    "mysql": "^2.18.1"
+  },
+  "name": "102",
+  "version": "1.0.0",
+  "description": "",
+  "main": "db.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bosscop12/102.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/bosscop12/102/issues"
+  },
+  "homepage": "https://github.com/bosscop12/102#readme"
+}
