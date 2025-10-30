@@ -17,13 +17,15 @@ typedef struct {
     int top;
 } Stack;
 
+// ---------------------- Stack Functions ----------------------
 void push(Stack *s, const char *msg) {
     if (s->top >= STACK_SIZE) {
         free(s->items[STACK_SIZE - 1]);
         s->top--;
     }
-    for (int i = s->top; i > 0; i--)
+    for (int i = s->top; i > 0; i--) {
         s->items[i] = s->items[i - 1];
+    }
     s->items[0] = _strdup(msg);
     s->top++;
 }
@@ -31,8 +33,9 @@ void push(Stack *s, const char *msg) {
 void displayStack(Stack *s) {
     system("cls");
     printf("=== แสดงข้อความแชท (อ่านอย่างเดียว) ===\n\n");
-    for (int i = 0; i < s->top; i++)
+    for (int i = 0; i < s->top; i++) {
         printf("%s\n", s->items[i]);
+    }
 }
 
 void freeStack(Stack *s) {
@@ -40,15 +43,57 @@ void freeStack(Stack *s) {
         free(s->items[i]);
 }
 
-// เติมเวลาลงท้ายข้อความ
-void appendTime(char *out, const char *msg) {
+// ---------------------- Utility ----------------------
+void formatMessage(char *out, const char *msg) {
     time_t now = time(NULL);
     struct tm *t = localtime(&now);
-    char timestr[16];
-    strftime(timestr, sizeof(timestr), "%H:%M:%S", t);
-    snprintf(out, BUF_SIZE + 64, "%s - %s", msg, timestr);
+    char timeStr[16];
+    strftime(timeStr, sizeof(timeStr), "%H:%M:%S", t);
+    snprintf(out, BUF_SIZE + 50, "%s - %s", msg, timeStr);
 }
 
+// ---------------------- Save Log (Stack Style + Read-only) ----------------------
+void appendLogStack(const char *msg) {
+    char filename[64];
+    time_t now = time(NULL);
+    struct tm *t = localtime(&now);
+    strftime(filename, sizeof(filename), "chat_%Y-%m-%d.txt", t);
+
+    // ก่อนเขียน ต้องปลด Read-only (ถ้ามี)
+    SetFileAttributesA(filename, FILE_ATTRIBUTE_NORMAL);
+
+    // อ่านไฟล์เก่า
+    FILE *fpOld = fopen(filename, "r");
+    char *oldContent = NULL;
+    long fsize = 0;
+
+    if (fpOld) {
+        fseek(fpOld, 0, SEEK_END);
+        fsize = ftell(fpOld);
+        fseek(fpOld, 0, SEEK_SET);
+        oldContent = malloc(fsize + 1);
+        fread(oldContent, 1, fsize, fpOld);
+        oldContent[fsize] = '\0';
+        fclose(fpOld);
+    }
+
+    // เขียนใหม่โดยข้อความใหม่อยู่บนสุด
+    FILE *fpNew = fopen(filename, "w");
+    if (fpNew) {
+        fprintf(fpNew, "%s\n", msg);
+        if (oldContent)
+            fwrite(oldContent, 1, fsize, fpNew);
+        fclose(fpNew);
+    }
+
+    if (oldContent)
+        free(oldContent);
+
+    // ตั้งค่าเป็น Read-only ✅
+    SetFileAttributesA(filename, FILE_ATTRIBUTE_READONLY);
+}
+
+// ---------------------- Main ----------------------
 int main() {
     system("chcp 65001 >nul");
     SetConsoleOutputCP(CP_UTF8);
@@ -71,15 +116,18 @@ int main() {
 
     Stack chatStack = { .top = 0 };
     char buf[BUF_SIZE];
-    char withTime[BUF_SIZE + 64];
+    char formatted[BUF_SIZE + 50];
+
+    printf("เริ่มรับข้อความ...\n");
 
     while (1) {
         int n = recv(sock, buf, BUF_SIZE - 1, 0);
         if (n > 0) {
             buf[n] = '\0';
-            appendTime(withTime, buf);     // เติมเวลาตรงนี้
-            push(&chatStack, withTime);
+            formatMessage(formatted, buf);
+            push(&chatStack, formatted);
             displayStack(&chatStack);
+            appendLogStack(formatted); // ✅ บันทึกแบบ Stack และล็อกไฟล์ให้อ่านอย่างเดียว
         }
     }
 
