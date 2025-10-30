@@ -29,12 +29,13 @@ void broadcastUDP(const char *msg) {
 }
 
 DWORD WINAPI ClientHandler(LPVOID param) {
-    int idx = *(int*)param; // ค่าของ index ของ client
+    int idx = *(int*)param;
+    free(param); // ปล่อย memory ของ index
     char buffer[BUF_SIZE];
     int n;
 
     while ((n = recv(clients[idx].sock, buffer, BUF_SIZE-1, 0)) > 0) {
-        buffer[n] = '\0';
+        buffer[n] = '\0'; // ✅ เติม null terminator
         char msg[BUF_SIZE+60];
         snprintf(msg, sizeof(msg), "%s: %s\n", clients[idx].name, buffer);
 
@@ -85,13 +86,18 @@ int main() {
 
             // รับชื่อ
             char name[50];
-            recv(clientSock, name, sizeof(name)-1, 0);
+            int n = recv(clientSock, name, sizeof(name)-1, 0);
+            if (n <= 0) {
+                closesocket(clientSock);
+                continue;
+            }
+            name[n] = '\0'; // ✅ เติม null terminator
             name[strcspn(name,"\n")] = 0;
 
             clients[clientCount].sock = clientSock;
             strcpy(clients[clientCount].name, name);
 
-            int *pIdx = malloc(sizeof(int)); // copy index ให้แต่ละ thread
+            int *pIdx = malloc(sizeof(int));
             *pIdx = clientCount;
             clientCount++;
             CreateThread(NULL, 0, ClientHandler, pIdx, 0, NULL);
