@@ -27,23 +27,27 @@ int main()
     SetConsoleOutputCP(CP_UTF8);
     SetConsoleCP(CP_UTF8);
     setlocale(LC_ALL, "th_TH.UTF-8");
+
     WSADATA wsa;
     WSAStartup(MAKEWORD(2, 2), &wsa);
 
     char serverIP[20];
     char name[50];
 
+    // ✅ ลบไฟล์ server_ip.txt ก่อนสร้างใหม่ทุกครั้ง
+    DeleteFileA("server_ip.txt");
+
     // ให้ผู้ใช้พิมพ์ชื่อ
     printf("พิมพ์ชื่อของคุณ: ");
     fgets(name, sizeof(name), stdin);
-    name[strcspn(name, "\n")] = 0; // ตัด \n
+    name[strcspn(name, "\n")] = 0; // ตัด \n ออก
 
     // ให้ผู้ใช้กรอก IP ของ Server
     printf("กรอก IP ของ Server: ");
     fgets(serverIP, sizeof(serverIP), stdin);
     serverIP[strcspn(serverIP, "\n")] = 0;
 
-    // บันทึก IP ไว้ให้ ChatDisplay ใช้
+    // ✅ บันทึก IP ไว้ให้ ChatDisplay ใช้ (สร้างใหม่แน่นอน)
     FILE *f = fopen("server_ip.txt", "w");
     if (f)
     {
@@ -60,13 +64,15 @@ int main()
     if (connect(sock, (struct sockaddr *)&addr, sizeof(addr)) != 0)
     {
         printf("ไม่สามารถเชื่อมต่อ Server ที่ %s\n", serverIP);
+        closesocket(sock);
+        WSACleanup();
         return 1;
     }
 
     // ส่งชื่อผู้ใช้ไป Server
     send(sock, name, strlen(name), 0);
 
-    // เริ่ม thread สำหรับรับข้อความ
+    // เริ่ม Thread สำหรับรับข้อความจาก Server
     CreateThread(NULL, 0, ReceiveThread, &sock, 0, NULL);
 
     char msg[BUF_SIZE];

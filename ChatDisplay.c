@@ -4,6 +4,7 @@
 #include <locale.h>
 #include <winsock2.h>
 #include <windows.h>
+#include <time.h>
 
 #pragma comment(lib,"ws2_32.lib")
 
@@ -16,33 +17,36 @@ typedef struct {
     int top;
 } Stack;
 
-// Push: ข้อความใหม่อยู่ top
 void push(Stack *s, const char *msg) {
-    if(s->top >= STACK_SIZE) {
-        // Stack เต็ม: free ข้อความเก่าสุดด้านล่าง
-        free(s->items[STACK_SIZE-1]);
+    if (s->top >= STACK_SIZE) {
+        free(s->items[STACK_SIZE - 1]);
         s->top--;
     }
-    // เลื่อนข้อความลง
-    for(int i=s->top; i>0; i--) {
-        s->items[i] = s->items[i-1];
-    }
+    for (int i = s->top; i > 0; i--)
+        s->items[i] = s->items[i - 1];
     s->items[0] = _strdup(msg);
     s->top++;
 }
 
-// แสดงข้อความ: top อยู่ด้านบน
 void displayStack(Stack *s) {
     system("cls");
     printf("=== แสดงข้อความแชท (อ่านอย่างเดียว) ===\n\n");
-    for(int i=0;i<s->top;i++) {
-        printf("%s", s->items[i]);
-    }
+    for (int i = 0; i < s->top; i++)
+        printf("%s\n", s->items[i]);
 }
 
 void freeStack(Stack *s) {
-    for(int i=0;i<s->top;i++)
+    for (int i = 0; i < s->top; i++)
         free(s->items[i]);
+}
+
+// เติมเวลาลงท้ายข้อความ
+void appendTime(char *out, const char *msg) {
+    time_t now = time(NULL);
+    struct tm *t = localtime(&now);
+    char timestr[16];
+    strftime(timestr, sizeof(timestr), "%H:%M:%S", t);
+    snprintf(out, BUF_SIZE + 64, "%s - %s", msg, timestr);
 }
 
 int main() {
@@ -52,11 +56,10 @@ int main() {
     setlocale(LC_ALL, "th_TH.UTF-8");
 
     WSADATA wsa;
-    WSAStartup(MAKEWORD(2,2), &wsa);
+    WSAStartup(MAKEWORD(2, 2), &wsa);
 
     SOCKET sock = socket(AF_INET, SOCK_DGRAM, 0);
 
-    // Bind กับทุก IP ของเครื่อง
     struct sockaddr_in addr;
     addr.sin_family = AF_INET;
     addr.sin_port = htons(BCAST_PORT);
@@ -68,12 +71,14 @@ int main() {
 
     Stack chatStack = { .top = 0 };
     char buf[BUF_SIZE];
+    char withTime[BUF_SIZE + 64];
 
-    while(1) {
-        int n = recv(sock, buf, BUF_SIZE-1, 0);
-        if(n > 0) {
+    while (1) {
+        int n = recv(sock, buf, BUF_SIZE - 1, 0);
+        if (n > 0) {
             buf[n] = '\0';
-            push(&chatStack, buf);
+            appendTime(withTime, buf);     // เติมเวลาตรงนี้
+            push(&chatStack, withTime);
             displayStack(&chatStack);
         }
     }
