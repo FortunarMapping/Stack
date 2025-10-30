@@ -6,11 +6,11 @@
 #include <windows.h>
 #include <time.h>
 
-#pragma comment(lib,"ws2_32.lib")
+#pragma comment(lib, "ws2_32.lib")
 
 #define BUF_SIZE 512
 #define BCAST_PORT 9999
-#define STACK_SIZE 100   // เก็บข้อความล่าสุด 100 ข้อความ
+#define STACK_SIZE 100 // เก็บข้อความล่าสุด 100 ข้อความ
 
 typedef struct {
     char *items[STACK_SIZE];
@@ -19,13 +19,13 @@ typedef struct {
 
 // ---------------------- Stack Functions ----------------------
 void push(Stack *s, const char *msg) {
-    if (s->top >= STACK_SIZE) {
+    if (s->top == STACK_SIZE) {
         free(s->items[STACK_SIZE - 1]);
-        s->top--;
+        memmove(&s->items[1], &s->items[0], (STACK_SIZE - 1) * sizeof(char *));
+        s->items[0] = _strdup(msg);
+        return;
     }
-    for (int i = s->top; i > 0; i--) {
-        s->items[i] = s->items[i - 1];
-    }
+    memmove(&s->items[1], &s->items[0], s->top * sizeof(char *));
     s->items[0] = _strdup(msg);
     s->top++;
 }
@@ -62,27 +62,44 @@ void appendLogStack(const char *msg) {
     // ก่อนเขียน ต้องปลด Read-only (ถ้ามี)
     SetFileAttributesA(filename, FILE_ATTRIBUTE_NORMAL);
 
-    // อ่านไฟล์เก่า
-    FILE *fpOld = fopen(filename, "r");
+    // อ่านไฟล์เก่าแบบ binary
+    FILE *fpOld = fopen(filename, "rb");
     char *oldContent = NULL;
     long fsize = 0;
-
     if (fpOld) {
         fseek(fpOld, 0, SEEK_END);
         fsize = ftell(fpOld);
         fseek(fpOld, 0, SEEK_SET);
         oldContent = malloc(fsize + 1);
         fread(oldContent, 1, fsize, fpOld);
-        oldContent[fsize] = '\0';
+        oldContent[fsize] = '\0'; // สำหรับ safety แต่เป็น binary
         fclose(fpOld);
     }
 
-    // เขียนใหม่โดยข้อความใหม่อยู่บนสุด
-    FILE *fpNew = fopen(filename, "w");
+    // จัดการ BOM ใน oldContent (ถ้ามี ลบออก)
+    char *content_start = oldContent;
+    size_t content_size = fsize;
+    if (fsize >= 3 && (unsigned char)oldContent[0] == 0xEF &&
+        (unsigned char)oldContent[1] == 0xBB &&
+        (unsigned char)oldContent[2] == 0xBF) {
+        content_start += 3;
+        content_size -= 3;
+    }
+
+    // เขียนใหม่แบบ binary (ข้อความใหม่อยู่บนสุด)
+    FILE *fpNew = fopen(filename, "wb");
     if (fpNew) {
-        fprintf(fpNew, "%s\n", msg);
+        // เขียน BOM สำหรับ UTF-8
+        unsigned char bom[] = {0xEF, 0xBB, 0xBF};
+        fwrite(bom, 1, 3, fpNew);
+
+        // เขียนข้อความใหม่ + \r\n
+        fwrite(msg, 1, strlen(msg), fpNew);
+        fwrite("\r\n", 1, 2, fpNew);
+
+        // เขียน oldContent (ไม่มี BOM)
         if (oldContent)
-            fwrite(oldContent, 1, fsize, fpNew);
+            fwrite(content_start, 1, content_size, fpNew);
         fclose(fpNew);
     }
 
@@ -109,15 +126,15 @@ int main() {
     addr.sin_family = AF_INET;
     addr.sin_port = htons(BCAST_PORT);
     addr.sin_addr.s_addr = INADDR_ANY;
-    bind(sock, (struct sockaddr*)&addr, sizeof(addr));
+    bind(sock, (struct sockaddr *)&addr, sizeof(addr));
 
-    SetConsoleTitleA("📺 Chat Display");
+    SetConsoleTitleW(L"📺 Chat Display"); // ✅ ใช้ W เพื่อรองรับ Unicode/อิโมจิ
+
     system("color 0A");
 
-    Stack chatStack = { .top = 0 };
+    Stack chatStack = {.top = 0};
     char buf[BUF_SIZE];
     char formatted[BUF_SIZE + 50];
-
     printf("เริ่มรับข้อความ...\n");
 
     while (1) {
